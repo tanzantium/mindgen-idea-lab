@@ -1,5 +1,7 @@
 
 import streamlit as st
+import pandas as pd
+import os
 
 st.set_page_config(
     page_title="Mind Genomics Idea Laboratory",
@@ -8,12 +10,12 @@ st.set_page_config(
 )
 
 st.title("🧪 Mind Genomics Idea Laboratory")
-st.markdown("""
-Design ideas not by guessing — but by toggling truths.
-Explore which minds respond to which cues, and why.
-""")
+st.markdown("""Design ideas not by guessing — but by toggling truths.
+Explore which minds respond to which cues, and why.""")
 
-# Cue setup
+# ------------------------------
+# CUE SETUP
+# ------------------------------
 cues = {
     "Nature’s Cleanse": "nature_cleanse",
     "Cosy Calm": "cosy_calm",
@@ -28,11 +30,28 @@ cues = {
 
 st.sidebar.header("🔘 Toggle Cues")
 active_cues = []
+cue_state = {}
+
+# Check if a scenario is loaded and apply it
+selected_scenario = st.sidebar.selectbox("▶ Load saved scenario:", ["None"] + 
+    (pd.read_csv("scenarios.csv")["name"].tolist() if os.path.exists("scenarios.csv") else []))
+
+scenario_loaded = []
+if selected_scenario != "None":
+    df = pd.read_csv("scenarios.csv")
+    scenario_loaded = df[df["name"] == selected_scenario]["cues"].values[0].split(",")
+
+# Cue checkboxes
 for label, var in cues.items():
-    if st.sidebar.checkbox(label):
+    checked = var in scenario_loaded
+    state = st.sidebar.checkbox(label, value=checked)
+    cue_state[var] = state
+    if state:
         active_cues.append(var)
 
-# Coefficients
+# ------------------------------
+# COEFFICIENTS & SCORING
+# ------------------------------
 coefficients = {
     "Cluster 1": [6, 19, 11, 4, 5, 10, 5, 4, 7],
     "Cluster 2": [16, 12, 14, 5, 6, 14, 6, 6, 11],
@@ -72,13 +91,24 @@ with col1:
 with col2:
     st.subheader("🧭 Strategic Prompt")
     if "nature_cleanse" in active_cues and "clean_wear" in active_cues:
-        st.success("📦 Strategy: Position this combo as Botanical + Clinical Clean — ideal for aluminum-free messaging")
+        st.success("📦 Strategy: Botanical + Clinical Clean — ideal for aluminum-free messaging")
     if "cosy_calm" in active_cues and "plant_pure" in active_cues:
-        st.success("📦 Strategy: Use cozy comfort + natural care — suitable for calming narratives on digital channels")
+        st.success("📦 Strategy: Cozy comfort + natural care — digital-first channel testing")
     if len(active_cues) >= 4:
-        st.info("💡 Consider testing this cue bundle in a targeted AB test across 2 personas")
+        st.info("💡 Consider AB testing this cue bundle with 2 personas")
 
+# ------------------------------
+# SCENARIO SAVE
+# ------------------------------
 st.sidebar.markdown("---")
 scenario_name = st.sidebar.text_input("Save this configuration as:")
 if st.sidebar.button("💾 Save Scenario"):
-    st.sidebar.success(f"Scenario '{scenario_name}' saved (not persistent in demo)")
+    cue_string = ",".join(active_cues)
+    df_new = pd.DataFrame([[scenario_name, cue_string]], columns=["name", "cues"])
+    if os.path.exists("scenarios.csv"):
+        df_existing = pd.read_csv("scenarios.csv")
+        df_all = pd.concat([df_existing, df_new], ignore_index=True)
+    else:
+        df_all = df_new
+    df_all.drop_duplicates(subset="name", keep="last").to_csv("scenarios.csv", index=False)
+    st.sidebar.success(f"Scenario '{scenario_name}' saved ✅")
